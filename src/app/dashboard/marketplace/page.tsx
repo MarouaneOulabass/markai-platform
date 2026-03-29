@@ -16,9 +16,14 @@ import {
   Store,
   Film,
   Mail,
+  Mails,
   Layout,
   Calendar,
   AudioLines,
+  Compass,
+  ScanSearch,
+  Target,
+  Layers,
 } from "lucide-react";
 import Link from "next/link";
 
@@ -30,9 +35,14 @@ const iconMap: Record<string, any> = {
   Search,
   Film,
   Mail,
+  Mails,
   Layout,
   Calendar,
   AudioLines,
+  Compass,
+  ScanSearch,
+  Target,
+  Layers,
 };
 
 const categoryLabels: Record<string, string> = {

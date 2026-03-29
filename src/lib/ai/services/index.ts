@@ -33,17 +33,34 @@ import { emailSubjectGenerator } from "./email-subject-generator";
 import { landingPageCopy } from "./landing-page-copy";
 import { socialMediaCalendar } from "./social-media-calendar";
 import { brandVoiceAnalyzer } from "./brand-voice-analyzer";
+import { angleGenerator } from "./angle-generator";
+import { adAnalysisTool } from "./ad-analysis-tool";
+import { competitorAnalysis } from "./competitor-analysis";
+import { emailSequenceGenerator } from "./email-sequence-generator";
+import { multiVariantAdGenerator } from "./multi-variant-ad-generator";
 
 export const services: ServiceDefinition[] = [
+  // Content
   hookGenerator,
-  adCopyGenerator,
   productDescriptionGenerator,
   contentRepurposer,
-  seoMetaGenerator,
-  tiktokScriptGenerator,
-  emailSubjectGenerator,
   landingPageCopy,
+  // Ads
+  adCopyGenerator,
+  angleGenerator,
+  multiVariantAdGenerator,
+  // Video
+  tiktokScriptGenerator,
+  // Email
+  emailSubjectGenerator,
+  emailSequenceGenerator,
+  // Social
   socialMediaCalendar,
+  // SEO
+  seoMetaGenerator,
+  // Analytics
+  adAnalysisTool,
+  competitorAnalysis,
   brandVoiceAnalyzer,
 ];
 
