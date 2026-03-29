@@ -11,14 +11,14 @@ export async function DELETE(
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const campaign = await prisma.campaign.findFirst({
+  // Delete only if belongs to user (atomic check + delete)
+  const deleted = await prisma.campaign.deleteMany({
     where: { id: params.id, userId: session.user.id },
   });
 
-  if (!campaign) {
+  if (deleted.count === 0) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
-  await prisma.campaign.delete({ where: { id: params.id } });
   return NextResponse.json({ success: true });
 }

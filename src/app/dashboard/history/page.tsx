@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -40,6 +40,17 @@ export default function HistoryPage() {
       .catch(() => {})
       .finally(() => setLoading(false));
   }, []);
+
+  // Close modal on Escape
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") setSelectedRun(null);
+    }
+    if (selectedRun) {
+      document.addEventListener("keydown", handleKeyDown);
+      return () => document.removeEventListener("keydown", handleKeyDown);
+    }
+  }, [selectedRun]);
 
   const statusConfig: Record<string, { icon: any; variant: any; label: string }> = {
     COMPLETED: { icon: CheckCircle, variant: "success", label: "Completed" },

@@ -14,32 +14,43 @@ export async function consumeTokens(
   runId?: string,
   description?: string
 ): Promise<boolean> {
-  const user = await prisma.user.findUnique({
-    where: { id: userId },
-    select: { tokenBalance: true },
-  });
+  if (amount <= 0) return false;
 
-  if (!user || user.tokenBalance < amount) {
-    return false;
+  // Atomic: decrement only if balance >= amount (prevents race condition)
+  try {
+    const result = await prisma.$transaction(async (tx) => {
+      const user = await tx.user.findUnique({
+        where: { id: userId },
+        select: { tokenBalance: true },
+      });
+
+      if (!user || user.tokenBalance < amount) {
+        throw new Error("INSUFFICIENT_TOKENS");
+      }
+
+      await tx.user.update({
+        where: { id: userId },
+        data: { tokenBalance: { decrement: amount } },
+      });
+
+      await tx.tokenLedger.create({
+        data: {
+          userId,
+          amount: -amount,
+          type: "CONSUMPTION",
+          runId: runId ?? null,
+          description: description ?? "Service execution",
+        },
+      });
+
+      return true;
+    });
+
+    return result;
+  } catch (error: any) {
+    if (error.message === "INSUFFICIENT_TOKENS") return false;
+    throw error;
   }
-
-  await prisma.$transaction([
-    prisma.user.update({
-      where: { id: userId },
-      data: { tokenBalance: { decrement: amount } },
-    }),
-    prisma.tokenLedger.create({
-      data: {
-        userId,
-        amount: -amount,
-        type: "CONSUMPTION",
-        runId: runId ?? null,
-        description: description ?? `Service execution`,
-      },
-    }),
-  ]);
-
-  return true;
 }
 
 export async function addTokens(
@@ -48,18 +59,21 @@ export async function addTokens(
   type: "PURCHASE" | "BONUS" | "REFUND",
   description?: string
 ): Promise<void> {
-  await prisma.$transaction([
-    prisma.user.update({
+  if (amount <= 0) return;
+
+  await prisma.$transaction(async (tx) => {
+    await tx.user.update({
       where: { id: userId },
       data: { tokenBalance: { increment: amount } },
-    }),
-    prisma.tokenLedger.create({
+    });
+
+    await tx.tokenLedger.create({
       data: {
         userId,
         amount,
         type,
         description: description ?? `${type.toLowerCase()} of ${amount} tokens`,
       },
-    }),
-  ]);
+    });
+  });
 }

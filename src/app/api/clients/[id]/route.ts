@@ -11,15 +11,14 @@ export async function DELETE(
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const client = await prisma.client.findFirst({
+  // Delete only if belongs to user (atomic check + delete)
+  const deleted = await prisma.client.deleteMany({
     where: { id: params.id, userId: session.user.id },
   });
 
-  if (!client) {
+  if (deleted.count === 0) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
-
-  await prisma.client.delete({ where: { id: params.id } });
 
   return NextResponse.json({ success: true });
 }

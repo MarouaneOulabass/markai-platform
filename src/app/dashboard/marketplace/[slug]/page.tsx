@@ -58,6 +58,12 @@ export default function ServicePage() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+
+    // Confirmation before spending tokens
+    if (!service || !confirm(`This will consume ${service.tokenCost} tokens. Continue?`)) {
+      return;
+    }
+
     setError("");
     setResult(null);
     setLoading(true);

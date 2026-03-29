@@ -22,8 +22,8 @@ export async function GET() {
 }
 
 const createSchema = z.object({
-  name: z.string().min(1),
-  description: z.string().optional(),
+  name: z.string().min(1).max(200),
+  description: z.string().max(2000).optional(),
   clientId: z.string().optional(),
 });
 
@@ -37,6 +37,16 @@ export async function POST(request: Request) {
     const body = await request.json();
     const data = createSchema.parse(body);
 
+    // Validate clientId belongs to user
+    if (data.clientId) {
+      const client = await prisma.client.findFirst({
+        where: { id: data.clientId, userId: session.user.id },
+      });
+      if (!client) {
+        return NextResponse.json({ error: "Client not found" }, { status: 404 });
+      }
+    }
+
     const campaign = await prisma.campaign.create({
       data: {
         name: data.name,
@@ -49,7 +59,10 @@ export async function POST(request: Request) {
     return NextResponse.json(campaign, { status: 201 });
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return NextResponse.json({ error: error.errors[0].message }, { status: 400 });
+      return NextResponse.json(
+        { error: error.errors[0]?.message || "Invalid input" },
+        { status: 400 }
+      );
     }
     return NextResponse.json({ error: "Internal error" }, { status: 500 });
   }

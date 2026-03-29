@@ -1,5 +1,5 @@
 import { prisma } from "../prisma";
-import { consumeTokens } from "../tokens";
+import { consumeTokens, addTokens } from "../tokens";
 import { getAIProvider } from "./provider";
 import { getServiceBySlug } from "./services";
 
@@ -17,6 +17,38 @@ export async function executeService(params: ExecuteServiceParams) {
   const serviceDef = getServiceBySlug(serviceSlug);
   if (!serviceDef) {
     throw new Error(`Service not found: ${serviceSlug}`);
+  }
+
+  // Validate clientId belongs to user if provided
+  if (clientId) {
+    const client = await prisma.client.findFirst({
+      where: { id: clientId, userId },
+    });
+    if (!client) {
+      throw new Error("Client not found or access denied");
+    }
+  }
+
+  // Validate campaignId belongs to user if provided
+  if (campaignId) {
+    const campaign = await prisma.campaign.findFirst({
+      where: { id: campaignId, userId },
+    });
+    if (!campaign) {
+      throw new Error("Campaign not found or access denied");
+    }
+  }
+
+  // Check tokens BEFORE creating run
+  const hasTokens = await consumeTokens(
+    userId,
+    serviceDef.tokenCost,
+    undefined,
+    `${serviceDef.name} execution`
+  );
+
+  if (!hasTokens) {
+    throw new Error("Insufficient tokens");
   }
 
   // Find or create the service in DB
@@ -39,10 +71,10 @@ export async function executeService(params: ExecuteServiceParams) {
     });
   }
 
-  // Create the run record
+  // Create run (tokens already consumed)
   const run = await prisma.run.create({
     data: {
-      status: "PENDING",
+      status: "RUNNING",
       input: input as any,
       tokensCost: serviceDef.tokenCost,
       userId,
@@ -52,46 +84,16 @@ export async function executeService(params: ExecuteServiceParams) {
     },
   });
 
-  // Check and consume tokens
-  const hasTokens = await consumeTokens(
-    userId,
-    serviceDef.tokenCost,
-    run.id,
-    `${serviceDef.name} execution`
-  );
-
-  if (!hasTokens) {
-    await prisma.run.update({
-      where: { id: run.id },
-      data: {
-        status: "FAILED",
-        error: "Insufficient tokens",
-        completedAt: new Date(),
-      },
-    });
-    throw new Error("Insufficient tokens");
-  }
-
-  // Update status to running
-  await prisma.run.update({
-    where: { id: run.id },
-    data: { status: "RUNNING" },
-  });
-
   const startTime = Date.now();
 
   try {
-    // Build the prompt and execute
     const messages = serviceDef.buildPrompt(input);
     const provider = getAIProvider();
     const response = await provider.generate(messages);
 
-    // Parse the output
     const parsedOutput = serviceDef.parseOutput(response.content);
-
     const duration = Date.now() - startTime;
 
-    // Update run with results
     const completedRun = await prisma.run.update({
       where: { id: run.id },
       data: {
@@ -103,9 +105,7 @@ export async function executeService(params: ExecuteServiceParams) {
         duration,
         completedAt: new Date(),
       },
-      include: {
-        service: true,
-      },
+      include: { service: true },
     });
 
     return completedRun;
@@ -122,13 +122,12 @@ export async function executeService(params: ExecuteServiceParams) {
       },
     });
 
-    // Refund tokens on failure
-    const { addTokens } = await import("../tokens");
+    // Refund tokens on AI failure
     await addTokens(
       userId,
       serviceDef.tokenCost,
       "REFUND",
-      `Refund for failed ${serviceDef.name} execution`
+      `Refund for failed ${serviceDef.name} execution (run: ${run.id})`
     );
 
     throw error;

@@ -1,14 +1,15 @@
 import { prisma } from "@/lib/prisma";
-import { addTokens } from "@/lib/tokens";
 import bcrypt from "bcryptjs";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
+const WELCOME_BONUS = 500;
+
 const registerSchema = z.object({
-  name: z.string().min(2),
+  name: z.string().min(2).max(100),
   email: z.string().email(),
-  password: z.string().min(8),
-  agencyName: z.string().optional(),
+  password: z.string().min(8).max(128),
+  agencyName: z.string().max(100).optional(),
 });
 
 export async function POST(request: Request) {
@@ -19,30 +20,35 @@ export async function POST(request: Request) {
     const existingUser = await prisma.user.findUnique({ where: { email } });
     if (existingUser) {
       return NextResponse.json(
-        { error: "Email already registered" },
+        { error: "Unable to create account with this email" },
         { status: 409 }
       );
     }
 
     const hashedPassword = await bcrypt.hash(password, 12);
 
-    const user = await prisma.user.create({
-      data: {
-        name,
-        email,
-        hashedPassword,
-        agencyName,
-        tokenBalance: 500, // Welcome bonus
-      },
-    });
+    // Create user and ledger entry in a single transaction
+    const user = await prisma.$transaction(async (tx) => {
+      const newUser = await tx.user.create({
+        data: {
+          name,
+          email,
+          hashedPassword,
+          agencyName,
+          tokenBalance: WELCOME_BONUS,
+        },
+      });
 
-    // Record welcome bonus in ledger
-    await addTokens(user.id, 500, "BONUS", "Welcome bonus - 500 free tokens");
+      await tx.tokenLedger.create({
+        data: {
+          userId: newUser.id,
+          amount: WELCOME_BONUS,
+          type: "BONUS",
+          description: `Welcome bonus - ${WELCOME_BONUS} free tokens`,
+        },
+      });
 
-    // Fix: the addTokens added 500 more, so set back to 500
-    await prisma.user.update({
-      where: { id: user.id },
-      data: { tokenBalance: 500 },
+      return newUser;
     });
 
     return NextResponse.json(
@@ -52,7 +58,7 @@ export async function POST(request: Request) {
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json(
-        { error: error.errors[0].message },
+        { error: error.errors[0]?.message || "Invalid input" },
         { status: 400 }
       );
     }
