@@ -45,7 +45,7 @@ export default function TokensPage() {
     ])
       .then(([balData, ledData]) => {
         setBalance(balData.balance);
-        setLedger(ledData.entries || []);
+        setLedger(ledData.data || []);
       })
       .catch(() => {})
       .finally(() => setLoading(false));

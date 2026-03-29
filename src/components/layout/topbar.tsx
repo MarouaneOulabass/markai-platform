@@ -22,19 +22,19 @@ export function Topbar() {
   }, [session]);
 
   return (
-    <header className="h-16 border-b border-gray-200 bg-white flex items-center justify-between px-4 lg:px-6">
+    <header className="h-16 border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 flex items-center justify-between px-4 lg:px-6">
       <div className="pl-10 lg:pl-0">
-        <h2 className="text-sm text-gray-500">Welcome back,</h2>
-        <p className="text-sm font-semibold text-gray-900">
+        <h2 className="text-sm text-gray-500 dark:text-gray-400">Welcome back,</h2>
+        <p className="text-sm font-semibold text-gray-900 dark:text-white">
           {session?.user?.name || "User"}
         </p>
       </div>
 
       <div className="flex items-center gap-3">
         {/* Token balance */}
-        <div className="flex items-center gap-2 bg-gray-50 rounded-lg px-3 py-2">
+        <div className="flex items-center gap-2 bg-gray-50 dark:bg-gray-800 rounded-lg px-3 py-2">
           <Coins className="w-4 h-4 text-yellow-500" />
-          <span className="text-sm font-semibold text-gray-900">
+          <span className="text-sm font-semibold text-gray-900 dark:text-white">
             {tokenBalance !== null ? tokenBalance.toLocaleString() : "..."}
           </span>
           <span className="text-xs text-gray-500 hidden sm:inline">tokens</span>

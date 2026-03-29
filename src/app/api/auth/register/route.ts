@@ -1,4 +1,6 @@
 import { prisma } from "@/lib/prisma";
+import { registerLimiter, getClientIp, rateLimitResponse } from "@/lib/rate-limit";
+import { logger } from "@/lib/logger";
 import bcrypt from "bcryptjs";
 import { NextResponse } from "next/server";
 import { z } from "zod";
@@ -13,6 +15,10 @@ const registerSchema = z.object({
 });
 
 export async function POST(request: Request) {
+  const ip = getClientIp(request);
+  const { success } = registerLimiter(ip);
+  if (!success) return rateLimitResponse();
+
   try {
     const body = await request.json();
     const { name, email, password, agencyName } = registerSchema.parse(body);
@@ -62,7 +68,7 @@ export async function POST(request: Request) {
         { status: 400 }
       );
     }
-    console.error("Registration error:", error);
+    logger.error("Registration failed", { ip, error: String(error) });
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }

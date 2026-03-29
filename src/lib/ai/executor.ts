@@ -2,6 +2,7 @@ import { prisma } from "../prisma";
 import { consumeTokens, addTokens } from "../tokens";
 import { getAIProvider } from "./provider";
 import { getServiceBySlug } from "./services";
+import { logger } from "../logger";
 
 interface ExecuteServiceParams {
   serviceSlug: string;
@@ -11,12 +12,17 @@ interface ExecuteServiceParams {
   campaignId?: string;
 }
 
+/**
+ * Starts a service execution: validates, consumes tokens, creates run,
+ * then kicks off AI generation in the background.
+ * Returns the run immediately (status: RUNNING).
+ */
 export async function executeService(params: ExecuteServiceParams) {
   const { serviceSlug, input, userId, clientId, campaignId } = params;
 
   const serviceDef = getServiceBySlug(serviceSlug);
   if (!serviceDef) {
-    throw new Error(`Service not found: ${serviceSlug}`);
+    throw new Error("Service not found");
   }
 
   // Validate clientId belongs to user if provided
@@ -71,7 +77,7 @@ export async function executeService(params: ExecuteServiceParams) {
     });
   }
 
-  // Create run (tokens already consumed)
+  // Create run record (status: RUNNING)
   const run = await prisma.run.create({
     data: {
       status: "RUNNING",
@@ -82,8 +88,24 @@ export async function executeService(params: ExecuteServiceParams) {
       campaignId: campaignId || null,
       serviceId: service.id,
     },
+    include: { service: true },
   });
 
+  // Fire-and-forget: execute AI in background
+  processRunInBackground(run.id, serviceDef, input, userId);
+
+  return run;
+}
+
+/**
+ * Runs AI generation in the background, updates run on completion/failure.
+ */
+async function processRunInBackground(
+  runId: string,
+  serviceDef: ReturnType<typeof getServiceBySlug> & {},
+  input: Record<string, any>,
+  userId: string
+) {
   const startTime = Date.now();
 
   try {
@@ -94,8 +116,8 @@ export async function executeService(params: ExecuteServiceParams) {
     const parsedOutput = serviceDef.parseOutput(response.content);
     const duration = Date.now() - startTime;
 
-    const completedRun = await prisma.run.update({
-      where: { id: run.id },
+    await prisma.run.update({
+      where: { id: runId },
       data: {
         status: "COMPLETED",
         output: {
@@ -105,15 +127,18 @@ export async function executeService(params: ExecuteServiceParams) {
         duration,
         completedAt: new Date(),
       },
-      include: { service: true },
     });
 
-    return completedRun;
+    logger.info("Service execution completed", {
+      runId,
+      service: serviceDef.slug,
+      duration,
+    });
   } catch (error: any) {
     const duration = Date.now() - startTime;
 
     await prisma.run.update({
-      where: { id: run.id },
+      where: { id: runId },
       data: {
         status: "FAILED",
         error: error.message || "Unknown error",
@@ -127,9 +152,14 @@ export async function executeService(params: ExecuteServiceParams) {
       userId,
       serviceDef.tokenCost,
       "REFUND",
-      `Refund for failed ${serviceDef.name} execution (run: ${run.id})`
+      `Refund for failed ${serviceDef.name} execution (run: ${runId})`
     );
 
-    throw error;
+    logger.error("Service execution failed", {
+      runId,
+      service: serviceDef.slug,
+      error: error.message,
+      duration,
+    });
   }
 }

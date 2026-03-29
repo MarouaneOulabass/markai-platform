@@ -83,14 +83,34 @@ export default function ServicePage() {
 
       if (!res.ok) {
         setError(data.error || "Execution failed");
-      } else {
-        setResult(data);
+        setLoading(false);
+        return;
       }
+
+      // Poll for completion (run is now async)
+      const runId = data.id;
+      const maxPolls = 60; // 2 minutes max
+      for (let i = 0; i < maxPolls; i++) {
+        await new Promise((r) => setTimeout(r, 2000));
+        const pollRes = await fetch(`/api/runs/${runId}`);
+        const pollData = await pollRes.json();
+
+        if (pollData.status === "COMPLETED") {
+          setResult(pollData);
+          setLoading(false);
+          return;
+        }
+        if (pollData.status === "FAILED") {
+          setError(pollData.error || "Execution failed");
+          setLoading(false);
+          return;
+        }
+      }
+      setError("Execution timed out. Check history for results.");
     } catch {
       setError("Something went wrong");
-    } finally {
-      setLoading(false);
     }
+    setLoading(false);
   }
 
   function copyResult() {

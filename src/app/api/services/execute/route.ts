@@ -1,5 +1,7 @@
 import { auth } from "@/lib/auth";
 import { executeService } from "@/lib/ai/executor";
+import { executeLimiter, getClientIp, rateLimitResponse } from "@/lib/rate-limit";
+import { logger } from "@/lib/logger";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
@@ -11,6 +13,10 @@ const executeSchema = z.object({
 });
 
 export async function POST(request: Request) {
+  const ip = getClientIp(request);
+  const { success } = executeLimiter(ip);
+  if (!success) return rateLimitResponse();
+
   try {
     const session = await auth();
     if (!session?.user?.id) {
@@ -53,7 +59,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: message }, { status: 402 });
     }
 
-    console.error("Service execution error:", error);
+    logger.error("Service execution failed", { ip, error: String(error) });
     return NextResponse.json(
       { error: isSafe ? message : "Service execution failed. Please try again." },
       { status: 500 }
