@@ -28,6 +28,11 @@ import { adCopyGenerator } from "./ad-copy-generator";
 import { productDescriptionGenerator } from "./product-description-generator";
 import { contentRepurposer } from "./content-repurposer";
 import { seoMetaGenerator } from "./seo-meta-generator";
+import { tiktokScriptGenerator } from "./tiktok-script-generator";
+import { emailSubjectGenerator } from "./email-subject-generator";
+import { landingPageCopy } from "./landing-page-copy";
+import { socialMediaCalendar } from "./social-media-calendar";
+import { brandVoiceAnalyzer } from "./brand-voice-analyzer";
 
 export const services: ServiceDefinition[] = [
   hookGenerator,
@@ -35,6 +40,11 @@ export const services: ServiceDefinition[] = [
   productDescriptionGenerator,
   contentRepurposer,
   seoMetaGenerator,
+  tiktokScriptGenerator,
+  emailSubjectGenerator,
+  landingPageCopy,
+  socialMediaCalendar,
+  brandVoiceAnalyzer,
 ];
 
 export function getServiceBySlug(slug: string): ServiceDefinition | undefined {

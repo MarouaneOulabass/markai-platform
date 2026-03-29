@@ -52,8 +52,11 @@ const servicesList = [
   { name: "Hook Generator", tokens: 15, category: "Content" },
   { name: "Ad Copy Generator", tokens: 25, category: "Ads" },
   { name: "Product Page Generator", tokens: 20, category: "Content" },
-  { name: "Content Repurposer", tokens: 20, category: "Content" },
-  { name: "SEO Meta Generator", tokens: 10, category: "SEO" },
+  { name: "TikTok Script Generator", tokens: 20, category: "Video" },
+  { name: "Landing Page Copy", tokens: 35, category: "Conversion" },
+  { name: "Social Media Calendar", tokens: 30, category: "Social" },
+  { name: "Email Subject Lines", tokens: 10, category: "Email" },
+  { name: "Brand Voice Analyzer", tokens: 25, category: "Analytics" },
 ];
 
 export default function LandingPage() {
@@ -133,7 +136,7 @@ export default function LandingPage() {
               Each service is an app. Configure and launch in seconds.
             </p>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 max-w-4xl mx-auto">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 max-w-5xl mx-auto">
             {servicesList.map((service) => (
               <div
                 key={service.name}
@@ -153,11 +156,6 @@ export default function LandingPage() {
                 <h3 className="font-semibold text-gray-900">{service.name}</h3>
               </div>
             ))}
-            <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl border border-blue-200 p-5 flex items-center justify-center">
-              <span className="text-sm font-medium text-blue-600">
-                + More coming soon
-              </span>
-            </div>
           </div>
         </div>
       </section>

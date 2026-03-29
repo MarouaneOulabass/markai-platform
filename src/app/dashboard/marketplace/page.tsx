@@ -14,6 +14,11 @@ import {
   Coins,
   ArrowRight,
   Store,
+  Film,
+  Mail,
+  Layout,
+  Calendar,
+  AudioLines,
 } from "lucide-react";
 import Link from "next/link";
 
@@ -23,6 +28,11 @@ const iconMap: Record<string, any> = {
   ShoppingBag,
   RefreshCw,
   Search,
+  Film,
+  Mail,
+  Layout,
+  Calendar,
+  AudioLines,
 };
 
 const categoryLabels: Record<string, string> = {

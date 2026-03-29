@@ -1,10 +1,19 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Coins, TrendingDown, TrendingUp, Gift, RotateCcw } from "lucide-react";
+import {
+  Coins,
+  TrendingDown,
+  TrendingUp,
+  Gift,
+  RotateCcw,
+  CheckCircle,
+  Loader2,
+} from "lucide-react";
 
 interface LedgerEntry {
   id: string;
@@ -15,16 +24,19 @@ interface LedgerEntry {
 }
 
 const tokenPacks = [
-  { amount: 500, price: 9.99, label: "Starter", popular: false },
-  { amount: 2000, price: 29.99, label: "Growth", popular: true },
-  { amount: 5000, price: 59.99, label: "Pro", popular: false },
-  { amount: 15000, price: 149.99, label: "Agency", popular: false },
+  { id: "starter", amount: 500, price: 9.99, label: "Starter", popular: false },
+  { id: "growth", amount: 2000, price: 29.99, label: "Growth", popular: true },
+  { id: "pro", amount: 5000, price: 59.99, label: "Pro", popular: false },
+  { id: "agency", amount: 15000, price: 149.99, label: "Agency", popular: false },
 ];
 
 export default function TokensPage() {
+  const searchParams = useSearchParams();
   const [balance, setBalance] = useState<number | null>(null);
   const [ledger, setLedger] = useState<LedgerEntry[]>([]);
   const [loading, setLoading] = useState(true);
+  const [buyingPack, setBuyingPack] = useState<string | null>(null);
+  const success = searchParams.get("success");
 
   useEffect(() => {
     Promise.all([
@@ -38,6 +50,27 @@ export default function TokensPage() {
       .catch(() => {})
       .finally(() => setLoading(false));
   }, []);
+
+  async function handleBuy(packId: string) {
+    setBuyingPack(packId);
+    try {
+      const res = await fetch("/api/tokens/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ packId }),
+      });
+      const data = await res.json();
+      if (data.url) {
+        window.location.href = data.url;
+      } else {
+        alert(data.error || "Failed to start checkout");
+        setBuyingPack(null);
+      }
+    } catch {
+      alert("Something went wrong");
+      setBuyingPack(null);
+    }
+  }
 
   const typeConfig: Record<string, { icon: any; color: string; variant: any }> = {
     PURCHASE: { icon: TrendingUp, color: "text-green-500", variant: "success" },
@@ -54,6 +87,16 @@ export default function TokensPage() {
           Manage your token balance and purchase more
         </p>
       </div>
+
+      {/* Success Banner */}
+      {success && (
+        <div className="flex items-center gap-3 bg-green-50 border border-green-200 text-green-700 rounded-lg p-4">
+          <CheckCircle className="w-5 h-5" />
+          <p className="text-sm font-medium">
+            Payment successful! Your tokens have been added to your account.
+          </p>
+        </div>
+      )}
 
       {/* Balance Card */}
       <Card className="bg-gradient-to-br from-blue-600 to-blue-700 text-white">
@@ -79,7 +122,7 @@ export default function TokensPage() {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {tokenPacks.map((pack) => (
             <Card
-              key={pack.amount}
+              key={pack.id}
               className={`relative hover:shadow-md transition-shadow ${
                 pack.popular ? "border-blue-500 ring-1 ring-blue-500" : ""
               }`}
@@ -101,14 +144,22 @@ export default function TokensPage() {
                   ${pack.price}
                 </p>
                 <p className="text-xs text-gray-400 mb-4">
-                  ${(pack.price / pack.amount * 100).toFixed(1)}¢ per token
+                  ${((pack.price / pack.amount) * 100).toFixed(1)}¢ per token
                 </p>
                 <Button
                   className="w-full"
                   variant={pack.popular ? "default" : "outline"}
-                  onClick={() => alert("Payment integration coming soon! For now, tokens are added via admin.")}
+                  disabled={buyingPack !== null}
+                  onClick={() => handleBuy(pack.id)}
                 >
-                  Buy Now
+                  {buyingPack === pack.id ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Redirecting...
+                    </>
+                  ) : (
+                    "Buy Now"
+                  )}
                 </Button>
               </CardContent>
             </Card>
