@@ -14,6 +14,8 @@ import {
   Eye,
   X,
   Copy,
+  Download,
+  ExternalLink,
 } from "lucide-react";
 
 interface RunItem {
@@ -172,6 +174,27 @@ export default function HistoryPage() {
                 >
                   <Copy className="w-4 h-4 mr-1" /> Copy
                 </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    const text = selectedRun.output?.raw || JSON.stringify(selectedRun.output?.parsed, null, 2);
+                    const blob = new Blob([text], { type: "text/plain" });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement("a");
+                    a.href = url;
+                    a.download = `${selectedRun.service.slug}-result.txt`;
+                    a.click();
+                    URL.revokeObjectURL(url);
+                  }}
+                >
+                  <Download className="w-4 h-4 mr-1" /> Download
+                </Button>
+                <a href={`/dashboard/marketplace/${selectedRun.service.slug}`}>
+                  <Button variant="outline" size="sm">
+                    <ExternalLink className="w-4 h-4 mr-1" /> Re-run
+                  </Button>
+                </a>
                 <Button
                   variant="ghost"
                   size="icon"

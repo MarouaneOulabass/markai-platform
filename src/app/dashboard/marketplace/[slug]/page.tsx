@@ -16,6 +16,8 @@ import {
   CheckCircle,
   AlertCircle,
   Copy,
+  Download,
+  RotateCcw,
 } from "lucide-react";
 import Link from "next/link";
 
@@ -279,6 +281,33 @@ export default function ServicePage() {
                     <Copy className="w-4 h-4 mr-1" />
                   )}
                   {copied ? "Copied!" : "Copy"}
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    const text = result.output?.raw || JSON.stringify(result.output?.parsed, null, 2);
+                    const blob = new Blob([text], { type: "text/plain" });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement("a");
+                    a.href = url;
+                    a.download = `${slug}-result.txt`;
+                    a.click();
+                    URL.revokeObjectURL(url);
+                  }}
+                >
+                  <Download className="w-4 h-4 mr-1" /> Download
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setResult(null);
+                    setError("");
+                    window.scrollTo({ top: 0, behavior: "smooth" });
+                  }}
+                >
+                  <RotateCcw className="w-4 h-4 mr-1" /> Re-run
                 </Button>
               </div>
             </div>

@@ -24,6 +24,7 @@ import {
   ScanSearch,
   Target,
   Layers,
+  Rocket,
 } from "lucide-react";
 import Link from "next/link";
 
@@ -43,6 +44,7 @@ const iconMap: Record<string, any> = {
   ScanSearch,
   Target,
   Layers,
+  Rocket,
 };
 
 const categoryLabels: Record<string, string> = {

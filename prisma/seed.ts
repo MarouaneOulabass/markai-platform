@@ -9,6 +9,15 @@ async function main() {
   // Create services
   const serviceData = [
     {
+      slug: "full-campaign-generator",
+      name: "Full Campaign Generator",
+      description: "Generate a complete marketing campaign in one click: hooks, ads, scripts, posts, emails, and a 7-day plan.",
+      category: "CONTENT" as const,
+      icon: "Rocket",
+      tokenCost: 60,
+      inputSchema: {},
+    },
+    {
       slug: "hook-generator",
       name: "Hook Generator",
       description: "Generate attention-grabbing hooks for ads, social media, and content.",

@@ -49,14 +49,18 @@ const features = [
 ];
 
 const servicesList = [
+  { name: "Full Campaign Generator", tokens: 60, category: "Premium" },
   { name: "Hook Generator", tokens: 15, category: "Content" },
   { name: "Ad Copy Generator", tokens: 25, category: "Ads" },
-  { name: "Product Page Generator", tokens: 20, category: "Content" },
-  { name: "TikTok Script Generator", tokens: 20, category: "Video" },
+  { name: "Angle Generator", tokens: 20, category: "Ads" },
+  { name: "Multi-Variant Ads", tokens: 30, category: "Ads" },
+  { name: "Ad Analysis Tool", tokens: 15, category: "Analytics" },
+  { name: "Competitor Analysis", tokens: 25, category: "Analytics" },
+  { name: "Email Sequences", tokens: 35, category: "Email" },
+  { name: "TikTok Scripts", tokens: 20, category: "Video" },
   { name: "Landing Page Copy", tokens: 35, category: "Conversion" },
-  { name: "Social Media Calendar", tokens: 30, category: "Social" },
-  { name: "Email Subject Lines", tokens: 10, category: "Email" },
-  { name: "Brand Voice Analyzer", tokens: 25, category: "Analytics" },
+  { name: "Social Calendar", tokens: 30, category: "Social" },
+  { name: "SEO Meta Generator", tokens: 10, category: "SEO" },
 ];
 
 export default function LandingPage() {

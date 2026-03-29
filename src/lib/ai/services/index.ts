@@ -38,8 +38,11 @@ import { adAnalysisTool } from "./ad-analysis-tool";
 import { competitorAnalysis } from "./competitor-analysis";
 import { emailSequenceGenerator } from "./email-sequence-generator";
 import { multiVariantAdGenerator } from "./multi-variant-ad-generator";
+import { fullCampaignGenerator } from "./full-campaign-generator";
 
 export const services: ServiceDefinition[] = [
+  // Campaign (flagship)
+  fullCampaignGenerator,
   // Content
   hookGenerator,
   productDescriptionGenerator,
