@@ -31,17 +31,23 @@ export default function CampaignsPage() {
     clientId: "",
   });
 
+  const [error, setError] = useState("");
+
   async function fetchData() {
+    setError("");
     try {
       const [campRes, clientRes] = await Promise.all([
         fetch("/api/campaigns"),
         fetch("/api/clients"),
       ]);
+      if (!campRes.ok) throw new Error("Failed to load campaigns");
       const campData = await campRes.json();
       const clientData = await clientRes.json();
       setCampaigns(campData.campaigns || []);
       setClients(clientData.clients || []);
-    } catch {}
+    } catch (e: any) {
+      setError(e.message || "Failed to load data");
+    }
     setLoading(false);
   }
 

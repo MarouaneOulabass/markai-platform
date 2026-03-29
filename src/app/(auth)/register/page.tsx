@@ -36,6 +36,9 @@ export default function RegisterPage() {
         return;
       }
 
+      // Small delay to ensure DB write is complete before login
+      await new Promise((r) => setTimeout(r, 500));
+
       // Auto sign in after registration
       const result = await signIn("credentials", {
         email,
@@ -44,7 +47,9 @@ export default function RegisterPage() {
       });
 
       if (result?.error) {
-        router.push("/login");
+        // Registration succeeded but auto-login failed - send to login with message
+        setError("Account created! Please sign in.");
+        setTimeout(() => router.push("/login"), 2000);
       } else {
         router.push("/dashboard");
         router.refresh();

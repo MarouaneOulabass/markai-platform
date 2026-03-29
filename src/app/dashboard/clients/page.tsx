@@ -30,6 +30,7 @@ export default function ClientsPage() {
   const [showForm, setShowForm] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
   const [form, setForm] = useState({
     name: "",
     industry: "",
@@ -38,11 +39,15 @@ export default function ClientsPage() {
   });
 
   async function fetchClients() {
+    setError("");
     try {
       const res = await fetch("/api/clients");
+      if (!res.ok) throw new Error("Failed to load clients");
       const data = await res.json();
       setClients(data.clients || []);
-    } catch {}
+    } catch (e: any) {
+      setError(e.message || "Failed to load clients");
+    }
     setLoading(false);
   }
 
@@ -63,8 +68,13 @@ export default function ClientsPage() {
         setForm({ name: "", industry: "", website: "", notes: "" });
         setShowForm(false);
         fetchClients();
+      } else {
+        const data = await res.json().catch(() => ({}));
+        setError(data.error || "Failed to create client");
       }
-    } catch {}
+    } catch (e: any) {
+      setError(e.message || "Something went wrong");
+    }
     setSaving(false);
   }
 
@@ -164,6 +174,13 @@ export default function ClientsPage() {
             </form>
           </CardContent>
         </Card>
+      )}
+
+      {/* Error */}
+      {error && (
+        <div className="bg-red-50 text-red-600 text-sm rounded-lg p-3 dark:bg-red-900/20 dark:text-red-400">
+          {error}
+        </div>
       )}
 
       {/* Client List */}

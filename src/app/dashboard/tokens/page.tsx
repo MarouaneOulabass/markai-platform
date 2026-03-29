@@ -38,7 +38,8 @@ export default function TokensPage() {
   const [buyingPack, setBuyingPack] = useState<string | null>(null);
   const success = searchParams.get("success");
 
-  useEffect(() => {
+  function fetchData() {
+    setLoading(true);
     Promise.all([
       fetch("/api/tokens/balance").then((r) => r.json()),
       fetch("/api/tokens/ledger").then((r) => r.json()),
@@ -49,7 +50,17 @@ export default function TokensPage() {
       })
       .catch(() => {})
       .finally(() => setLoading(false));
-  }, []);
+  }
+
+  useEffect(() => {
+    fetchData();
+    // If returning from Stripe, poll balance for up to 10s (webhook may be delayed)
+    if (success) {
+      const interval = setInterval(fetchData, 3000);
+      const timeout = setTimeout(() => clearInterval(interval), 10000);
+      return () => { clearInterval(interval); clearTimeout(timeout); };
+    }
+  }, [success]);
 
   async function handleBuy(packId: string) {
     setBuyingPack(packId);

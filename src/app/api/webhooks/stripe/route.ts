@@ -1,6 +1,7 @@
 import { stripe, getPackById } from "@/lib/stripe";
 import { prisma } from "@/lib/prisma";
 import { addTokens } from "@/lib/tokens";
+import { logger } from "@/lib/logger";
 import { NextResponse } from "next/server";
 
 export async function POST(request: Request) {
@@ -20,7 +21,7 @@ export async function POST(request: Request) {
       process.env.STRIPE_WEBHOOK_SECRET!
     );
   } catch (error: any) {
-    console.error("Webhook signature verification failed:", error.message);
+    logger.error("Webhook signature verification failed", { error: error.message });
     return NextResponse.json({ error: "Invalid signature" }, { status: 400 });
   }
 
@@ -30,35 +31,50 @@ export async function POST(request: Request) {
     const packId = session.metadata?.packId;
 
     if (!userId || !packId) {
-      console.error("Webhook missing metadata:", { userId, packId });
+      logger.error("Webhook missing metadata", { userId, packId, eventId: event.id });
       return NextResponse.json({ received: true });
     }
 
-    // Validate pack exists and get the REAL token amount (don't trust metadata)
     const pack = getPackById(packId);
     if (!pack) {
-      console.error("Webhook invalid packId:", packId);
+      logger.error("Webhook invalid packId", { packId, eventId: event.id });
       return NextResponse.json({ received: true });
     }
 
-    // Validate userId exists in database
+    // IDEMPOTENCY: Check if this event was already processed
+    // Use Stripe event ID as unique reference in ledger description
+    const existing = await prisma.tokenLedger.findFirst({
+      where: {
+        userId,
+        type: "PURCHASE",
+        description: { contains: event.id },
+      },
+    });
+
+    if (existing) {
+      logger.info("Webhook already processed (idempotent)", { eventId: event.id });
+      return NextResponse.json({ received: true });
+    }
+
     const user = await prisma.user.findUnique({ where: { id: userId } });
     if (!user) {
-      console.error("Webhook unknown userId:", userId);
+      logger.error("Webhook unknown userId", { userId, eventId: event.id });
       return NextResponse.json({ received: true });
     }
 
-    // Use pack.amount from our source of truth, NOT from metadata
     await addTokens(
       userId,
       pack.amount,
       "PURCHASE",
-      `Purchased ${pack.label} pack: ${pack.amount.toLocaleString()} tokens`
+      `${pack.label} pack: ${pack.amount.toLocaleString()} tokens [${event.id}]`
     );
 
-    console.log(
-      `Tokens added: ${pack.amount} to user ${userId} (pack: ${packId})`
-    );
+    logger.info("Tokens added via Stripe", {
+      userId,
+      packId,
+      amount: pack.amount,
+      eventId: event.id,
+    });
   }
 
   return NextResponse.json({ received: true });

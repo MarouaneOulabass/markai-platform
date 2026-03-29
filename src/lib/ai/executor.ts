@@ -1,5 +1,5 @@
 import { prisma } from "../prisma";
-import { consumeTokens, addTokens } from "../tokens";
+import { addTokens } from "../tokens";
 import { getAIProvider } from "./provider";
 import { getServiceBySlug } from "./services";
 import { logger } from "../logger";
@@ -12,11 +12,6 @@ interface ExecuteServiceParams {
   campaignId?: string;
 }
 
-/**
- * Starts a service execution: validates, consumes tokens, creates run,
- * then kicks off AI generation in the background.
- * Returns the run immediately (status: RUNNING).
- */
 export async function executeService(params: ExecuteServiceParams) {
   const { serviceSlug, input, userId, clientId, campaignId } = params;
 
@@ -45,18 +40,6 @@ export async function executeService(params: ExecuteServiceParams) {
     }
   }
 
-  // Check tokens BEFORE creating run
-  const hasTokens = await consumeTokens(
-    userId,
-    serviceDef.tokenCost,
-    undefined,
-    `${serviceDef.name} execution`
-  );
-
-  if (!hasTokens) {
-    throw new Error("Insufficient tokens");
-  }
-
   // Find or create the service in DB
   let service = await prisma.service.findUnique({
     where: { slug: serviceSlug },
@@ -77,29 +60,56 @@ export async function executeService(params: ExecuteServiceParams) {
     });
   }
 
-  // Create run record (status: RUNNING)
-  const run = await prisma.run.create({
-    data: {
-      status: "RUNNING",
-      input: input as any,
-      tokensCost: serviceDef.tokenCost,
-      userId,
-      clientId: clientId || null,
-      campaignId: campaignId || null,
-      serviceId: service.id,
-    },
-    include: { service: true },
+  // ATOMIC: consume tokens + create run in single transaction
+  const run = await prisma.$transaction(async (tx) => {
+    const user = await tx.user.findUnique({
+      where: { id: userId },
+      select: { tokenBalance: true },
+    });
+
+    if (!user || user.tokenBalance < serviceDef.tokenCost) {
+      throw new Error("Insufficient tokens");
+    }
+
+    await tx.user.update({
+      where: { id: userId },
+      data: { tokenBalance: { decrement: serviceDef.tokenCost } },
+    });
+
+    await tx.tokenLedger.create({
+      data: {
+        userId,
+        amount: -serviceDef.tokenCost,
+        type: "CONSUMPTION",
+        description: `${serviceDef.name} execution`,
+      },
+    });
+
+    return tx.run.create({
+      data: {
+        status: "RUNNING",
+        input: input as any,
+        tokensCost: serviceDef.tokenCost,
+        userId,
+        clientId: clientId || null,
+        campaignId: campaignId || null,
+        serviceId: service!.id,
+      },
+      include: { service: true },
+    });
   });
 
-  // Fire-and-forget: execute AI in background
-  processRunInBackground(run.id, serviceDef, input, userId);
+  // Background execution with proper error catching
+  processRunInBackground(run.id, serviceDef, input, userId).catch((err) => {
+    logger.error("Unhandled background execution error", {
+      runId: run.id,
+      error: String(err),
+    });
+  });
 
   return run;
 }
 
-/**
- * Runs AI generation in the background, updates run on completion/failure.
- */
 async function processRunInBackground(
   runId: string,
   serviceDef: ReturnType<typeof getServiceBySlug> & {},
@@ -120,42 +130,43 @@ async function processRunInBackground(
       where: { id: runId },
       data: {
         status: "COMPLETED",
-        output: {
-          raw: response.content,
-          parsed: parsedOutput,
-        } as any,
+        output: { raw: response.content, parsed: parsedOutput } as any,
         duration,
         completedAt: new Date(),
       },
     });
 
-    logger.info("Service execution completed", {
-      runId,
-      service: serviceDef.slug,
-      duration,
-    });
+    logger.info("Run completed", { runId, service: serviceDef.slug, duration });
   } catch (error: any) {
     const duration = Date.now() - startTime;
 
-    await prisma.run.update({
-      where: { id: runId },
-      data: {
-        status: "FAILED",
-        error: error.message || "Unknown error",
-        duration,
-        completedAt: new Date(),
-      },
-    });
+    try {
+      await prisma.run.update({
+        where: { id: runId },
+        data: {
+          status: "FAILED",
+          error: error.message || "Unknown error",
+          duration,
+          completedAt: new Date(),
+        },
+      });
 
-    // Refund tokens on AI failure
-    await addTokens(
-      userId,
-      serviceDef.tokenCost,
-      "REFUND",
-      `Refund for failed ${serviceDef.name} execution (run: ${runId})`
-    );
+      await addTokens(
+        userId,
+        serviceDef.tokenCost,
+        "REFUND",
+        `Refund for failed ${serviceDef.name} (run: ${runId})`
+      );
+    } catch (refundErr) {
+      logger.error("CRITICAL: Failed to refund tokens", {
+        runId,
+        userId,
+        amount: serviceDef.tokenCost,
+        error: String(refundErr),
+      });
+    }
 
-    logger.error("Service execution failed", {
+    logger.error("Run failed", {
       runId,
       service: serviceDef.slug,
       error: error.message,
